@@ -56,28 +56,27 @@ export class TwitchBot {
         })();
     }
 
-onMessage() {
-    this.client.on('message', (channel, userstate, message, self) => {
-        if (self) return; // Ignore messages from the bot itself
-
-        const isSubscriber = userstate.subscriber;
-
-        // Extract the command and normalize it to lowercase
-        const command = message.trim().toLowerCase();
-
-        // Check if the message is one of the allowed commands
-        if (command === '!beept' || command === '!maxpt') {
-            if (isSubscriber) {
-                // Allow the user to execute the command
-                this.say(channel, `Command '${command}' executed successfully, @${userstate['display-name']}!`);
-                // Add logic to handle the specific command here
-            } else {
-                // Inform the user that they are not subscribed
-                this.say(channel, `Sorry @${userstate['display-name']}, you must be a subscriber to use the '${command}' command.`);
+    onMessage() {
+        this.client.on('message', (channel, userstate, message, self) => {
+            if (self) return; // Ignore messages from the bot itself
+    
+            const isSubscriber = userstate.subscriber;
+    
+            // Extract the command and normalize it to lowercase
+            const command = message.trim().toLowerCase();
+    
+            // Check if the message is the !beept command
+            if (command === '!beept') {
+                if (isSubscriber) {
+                    // User is subscribed, silently execute the command
+                    // Add your command handling logic here
+                } else {
+                    // User is not subscribed, send a message
+                    this.say(channel, `Sorry @${userstate['display-name']}, sub or fuck off.`);
+                }
             }
-        }
-    });
-}
+        });
+    }
 
     onConnected(callback) {
         this.client.on('connected', callback);
