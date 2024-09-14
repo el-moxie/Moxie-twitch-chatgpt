@@ -17,8 +17,25 @@ export class TwitchBot {
             },
             channels: this.channels
         });
-        this.openai = new OpenAI({apiKey: openai_api_key});
+        this.openai = new OpenAI({ apiKey: openai_api_key });
         this.enable_tts = enable_tts;
+
+        this.regulars = {};  // Track regulars (VIPs, Mods, and Subscribers)
+    }
+
+    // Determine if a user is a regular (VIP, Mod, or Subscriber)
+    isRegular(userstate) {
+        return userstate.mod || userstate.subscriber || userstate.badges && userstate.badges.vip;
+    }
+
+    onMessage(callback) {
+        this.client.on('message', (channel, userstate, message, self) => {
+            // Check if the user is a regular
+            userstate.regular = this.isRegular(userstate);
+
+            // Call the original callback with updated userstate
+            callback(channel, userstate, message, self);
+        });
     }
 
     addChannel(channel) {
@@ -54,10 +71,6 @@ export class TwitchBot {
                 console.error(error);
             }
         })();
-    }
-
-    onMessage(callback) {
-        this.client.on('message', callback);
     }
 
     onConnected(callback) {
