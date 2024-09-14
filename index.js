@@ -75,51 +75,43 @@ bot.connect(
 );
 
 // Handle incoming Twitch messages and OpenAI responses
-bot.onMessage(async (channel, user, message, self) => {
+bot.onMessage(async (channel, userstate, message, self) => {
     if (self) return;
 
     const currentTime = Date.now();
-    const elapsedTime = (currentTime - lastResponseTime) / 1000; // Time in seconds
+    const elapsedTime = (currentTime - lastResponseTime) / 1000;  // Time in seconds
 
-    if (ENABLE_CHANNEL_POINTS === 'true' && user['msg-id'] === 'highlighted-message') {
-        console.log(`Highlighted message: ${message}`);
-        if (elapsedTime < COOLDOWN_DURATION) {
-            bot.say(channel, `Cooldown active. Please wait ${COOLDOWN_DURATION - elapsedTime.toFixed(1)} seconds before sending another message.`);
-            return;
-        }
-        lastResponseTime = currentTime; // Update the last response time
+    if (elapsedTime < COOLDOWN_DURATION) {
+        const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime);
+        bot.say(channel, `Cooldown active. Please wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before sending another message.`);
+        return;
+    }
+    lastResponseTime = currentTime;  // Update the last response time
 
-        // OpenAI call with collective or per-user memory (depending on if user is a regular)
-        const response = await openaiOps.make_openai_call(user, message);
-        bot.say(channel, response);
+    let response = '';
+    const username = userstate.username;
+
+    // Check if the user is a regular (VIP, Mod, or Subscriber)
+    const isRegular = userstate.mod || userstate.subscriber || (userstate.badges && userstate.badges.vip);
+
+    // If the user is a regular, use user-specific memory; otherwise, use collective memory
+    if (isRegular) {
+        console.log(`${username} is a regular.`);
+        response = await openaiOps.make_openai_call_user(message, username);  // Use user-specific memory
+    } else {
+        console.log(`${username} is NOT a regular.`);
+        response = await openaiOps.make_openai_call_collective(message);  // Use collective memory
     }
 
-    const command = commandNames.find(cmd => message.toLowerCase().startsWith(cmd));
-    if (command) {
-        if (elapsedTime < COOLDOWN_DURATION) {
-            const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime); // Rounds to the nearest integer
-            bot.say(channel, `Calm your tits ${user.username}. Wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before pestering me again.`);
-            return;
-        }
-        lastResponseTime = currentTime; // Update the last response time
-
-        let text = message.slice(command.length).trim();
-        if (SEND_USERNAME === 'true') {
-            text = `Message from user ${user.username}: ${text}`;
-        }
-
-        // Use OpenAI to generate a response with hybrid memory (regular vs non-regular)
-        const response = await openaiOps.make_openai_call(user, text);
+    if (response.length > maxLength) {
+        const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g'));
+        messages.forEach((msg, index) => {
+            setTimeout(() => {
+                bot.say(channel, msg);
+            }, 1000 * index);
+        });
+    } else {
         bot.say(channel, response);
-
-        if (ENABLE_TTS === 'true') {
-            try {
-                const ttsAudioUrl = await bot.sayTTS(channel, response, user['userstate']);
-                notifyFileChange(ttsAudioUrl);
-            } catch (error) {
-                console.error('TTS Error:', error);
-            }
-        }
     }
 });
 
