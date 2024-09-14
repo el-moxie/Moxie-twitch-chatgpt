@@ -71,7 +71,7 @@ export class OpenAIOperations {
                 model: this.model_name,
                 messages: chatHistory,
                 temperature: 0.8,
-                max_tokens: 256,
+                max_tokens: 512,
                 top_p: 1,
                 frequency_penalty: 0,
                 presence_penalty: 0,
