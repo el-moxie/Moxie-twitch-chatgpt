@@ -48,6 +48,7 @@ const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, EN
 
 // Setup OpenAI operations with hybrid memory (15+ interactions for regulars, 8 for collective memory)
 fileContext = fs.readFileSync('./file_context.txt', 'utf8');
+console.log("File Context Loaded: ", fileContext);  // Add this line for verification
 const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH, 15);  // 15 for regulars (VIPs, Mods, and Subscribers)
 
 // Setup Twitch bot callbacks
