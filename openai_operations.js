@@ -12,6 +12,8 @@ export class OpenAIOperations {
         this.model_name = model_name;
         this.history_length = history_length; // For collective memory
         this.per_user_memory = per_user_memory; // For user-specific memory (15 interactions)
+
+        console.log("System Message (Persona) Loaded: ", file_context);  // Add this log to verify
     }
 
     // Manage collective memory (for all users)
@@ -59,6 +61,8 @@ export class OpenAIOperations {
             } else {
                 chatHistory = this.messages;  // Use collective memory
             }
+
+            console.log("Messages Sent to OpenAI: ", this.messages);  // Add this log
 
             // Make OpenAI call with the appropriate history
             const response = await this.openai.chat.completions.create({
