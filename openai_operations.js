@@ -27,6 +27,7 @@ export class OpenAIOperations {
 
     // Manage per-user memory
     check_user_memory_length(user) {
+        console.log(`Conversations in History: ${((this.messages.length / 2) -1)}/${this.history_length}`);
         if (this.perUserMemory[user] && this.perUserMemory[user].length > (this.per_user_memory * 2)) {
             console.log(`User message amount exceeded for ${user}. Removing oldest messages.`);
             this.perUserMemory[user].splice(1, 2);  // Remove oldest user-agent pair
@@ -62,7 +63,8 @@ export class OpenAIOperations {
                 chatHistory = this.messages;  // Use collective memory
             }
 
-            console.log("Messages Sent to OpenAI: ", this.messages);  // Add this log
+            // Log system message to verify it's not overwritten
+            console.log("System Message Before Sending to OpenAI:", this.messages[0]);
 
             // Make OpenAI call with the appropriate history
             const response = await this.openai.chat.completions.create({
