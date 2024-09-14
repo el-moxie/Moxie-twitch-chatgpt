@@ -45,8 +45,8 @@ export class OpenAIOperations {
             // Check if collective message history is exceeded
             this.check_collective_history_length();
 
-            // Log system message to verify it's not overwritten
-            console.log(`System Message for Collective (Sender: ${sender}) Before Sending to OpenAI:`, this.collective_messages[0]);
+            // Log the full collective message history
+            console.log(`Full Collective Message History (Sender: ${sender}):`, JSON.stringify(this.collective_messages, null, 2));
 
             // OpenAI API call
             const response = await this.openai.chat.completions.create({
@@ -85,8 +85,8 @@ export class OpenAIOperations {
             // Check if user-specific message history is exceeded
             this.check_user_history_length(username);
 
-            // Log system message to verify it's not overwritten
-            console.log(`System Message for User (${username}) Before Sending to OpenAI:`, this.user_messages[username][0]);
+            // Log the full user-specific message history
+            console.log(`Full User-Specific Message History (${username}):`, JSON.stringify(this.user_messages[username], null, 2));
 
             // OpenAI API call for the user-specific memory
             const response = await this.openai.chat.completions.create({
