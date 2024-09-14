@@ -52,7 +52,7 @@ export class OpenAIOperations {
             const response = await this.openai.chat.completions.create({
                 model: this.model_name,
                 messages: this.collective_messages,
-                temperature: 1,
+                temperature: 0.8,
                 max_tokens: 512,  // Increased to 512 for more context
                 top_p: 1,
                 frequency_penalty: 0,
@@ -92,7 +92,7 @@ export class OpenAIOperations {
             const response = await this.openai.chat.completions.create({
                 model: this.model_name,
                 messages: this.user_messages[username],
-                temperature: 1,
+                temperature: 0.8,
                 max_tokens: 512,  // Increased to 512 for more context
                 top_p: 1,
                 frequency_penalty: 0,
