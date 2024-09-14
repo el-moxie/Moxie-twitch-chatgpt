@@ -37,7 +37,7 @@ export class OpenAIOperations {
     // Add user messages to memory (handles both collective and per-user)
     add_user_message(user, text) {
         // Add to collective memory
-        this.messages.push({role: "user", content: text});
+        // this.messages.push({role: "user", content: text});
         this.check_collective_memory_length();
 
         // Add to per-user memory if they are a subscriber/regular
@@ -95,7 +95,7 @@ export class OpenAIOperations {
 
     // Add assistant responses to memory (both collective and per-user)
     add_assistant_response(user, response) {
-        this.messages.push({role: "assistant", content: response});
+        // this.messages.push({role: "assistant", content: response});
         this.check_collective_memory_length();
 
         if (this.is_regular(user)) {
