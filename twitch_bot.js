@@ -5,7 +5,7 @@ import { promises as fsPromises } from 'fs';  // Import fsPromises for file oper
 export class TwitchBot {
     constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
         this.channels = channels;
-        this.client = new tmi.client({
+        this.client = new tmi.Client({
             connection: {
                 reconnect: true,
                 secure: true
@@ -35,6 +35,11 @@ export class TwitchBot {
             // Call the original callback with updated userstate
             callback(channel, userstate, message, self);
         });
+    }
+
+    // Set up connection event handling using tmi.js
+    onConnected(callback) {
+        this.client.on('connected', callback);
     }
 
     addChannel(channel) {
