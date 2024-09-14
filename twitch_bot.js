@@ -42,6 +42,11 @@ export class TwitchBot {
         this.client.on('connected', callback);
     }
 
+    // Set up disconnection event handling using tmi.js
+    onDisconnected(callback) {
+        this.client.on('disconnected', callback);
+    }
+
     addChannel(channel) {
         // Check if channel is already in the list
         if (!this.channels.includes(channel)) {
