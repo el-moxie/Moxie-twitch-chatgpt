@@ -2,11 +2,11 @@ import express from 'express';
 import fs from 'fs';
 import ws from 'ws';
 import expressWs from 'express-ws';
-import {job} from './keep_alive.js';
-import {OpenAIOperations} from './openai_operations.js';
-import {TwitchBot} from './twitch_bot.js';
+import { job } from './keep_alive.js';
+import { OpenAIOperations } from './openai_operations.js';
+import { TwitchBot } from './twitch_bot.js';
 
-// Start keep alive cron job
+// Start keep-alive cron job
 job.start();
 console.log(process.env);
 
@@ -46,9 +46,9 @@ let lastResponseTime = 0; // Track the last response time
 console.log('Channels: ', channels);
 const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
 
-// Setup OpenAI operations
+// Setup OpenAI operations with hybrid memory (15+ interactions for regulars, 8 for collective memory)
 fileContext = fs.readFileSync('./file_context.txt', 'utf8');
-const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH);
+const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH, 15);  // 15 for subscribers/regulars
 
 // Setup Twitch bot callbacks
 bot.onConnected((addr, port) => {
@@ -73,6 +73,7 @@ bot.connect(
     }
 );
 
+// Handle incoming Twitch messages and OpenAI responses
 bot.onMessage(async (channel, user, message, self) => {
     if (self) return;
 
@@ -87,7 +88,8 @@ bot.onMessage(async (channel, user, message, self) => {
         }
         lastResponseTime = currentTime; // Update the last response time
 
-        const response = await openaiOps.make_openai_call(message);
+        // OpenAI call with collective or per-user memory (depending on if user is a subscriber/regular)
+        const response = await openaiOps.make_openai_call(user, message);
         bot.say(channel, response);
     }
 
@@ -105,7 +107,8 @@ bot.onMessage(async (channel, user, message, self) => {
             text = `Message from user ${user.username}: ${text}`;
         }
 
-        const response = await openaiOps.make_openai_call(text);
+        // Use OpenAI to generate a response with hybrid memory (regular vs non-regular)
+        const response = await openaiOps.make_openai_call(user, text);
         if (response.length > maxLength) {
             const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g'));
             messages.forEach((msg, index) => {
@@ -168,7 +171,7 @@ app.get('/gpt/:text', async (req, res) => {
     let answer = '';
     try {
         if (GPT_MODE === 'CHAT') {
-            answer = await openaiOps.make_openai_call(text);
+            answer = await openaiOps.make_openai_call(null, text);  // null for general queries
         } else if (GPT_MODE === 'PROMPT') {
             const prompt = `${fileContext}\n\nUser: ${text}\nAgent:`;
             answer = await openaiOps.make_openai_call_completion(prompt);
