@@ -36,19 +36,11 @@ export class OpenAIOperations {
         }
     }
 
-<<<<<<< HEAD
     // Make an OpenAI call for collective memory
     async make_openai_call_collective(text) {
         try {
             // Add user message to collective messages
             this.collective_messages.push({ role: "user", content: text });
-=======
-    // Add user messages to memory (handles both collective and per-user)
-    add_user_message(user, text) {
-        // Add to collective memory
-        // this.messages.push({role: "user", content: text});
-        this.check_collective_memory_length();
->>>>>>> 84b90cd5e5a747180da57e36d2531f64c421199f
 
             // Check if collective message history is exceeded
             this.check_collective_history_length();
@@ -120,24 +112,4 @@ export class OpenAIOperations {
             return "Sorry, something went wrong. Please try again later.";
         }
     }
-<<<<<<< HEAD
-=======
-
-    // Add assistant responses to memory (both collective and per-user)
-    add_assistant_response(user, response) {
-        // this.messages.push({role: "assistant", content: response});
-        this.check_collective_memory_length();
-
-        if (this.is_regular(user)) {
-            this.perUserMemory[user].push({role: "assistant", content: response});
-            this.check_user_memory_length(user);
-        }
-    }
-
-    // Check if user is a regular/subscriber
-    is_regular(user) {
-        // This can be customized to check if a user is a subscriber/regular based on Twitch info
-        return user.subscriber || user.regular;
-    }
->>>>>>> 84b90cd5e5a747180da57e36d2531f64c421199f
 }
