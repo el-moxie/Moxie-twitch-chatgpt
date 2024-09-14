@@ -1,97 +1,127 @@
-// Import modules
 import OpenAI from "openai";
 
 export class OpenAIOperations {
-    constructor(file_context, openai_key, model_name, history_length, per_user_memory) {
-        this.messages = [{role: "system", content: file_context}];  // Collective chat memory
-        this.perUserMemory = {};  // Store memory for individual users
-        this.collectiveMemory = this.messages;
+    constructor(file_context, openai_key, model_name, history_length, user_history_length) {
+        this.messages = [{ role: "system", content: file_context }];
+        this.collective_messages = [...this.messages];  // Initialize collective chat memory
+        this.user_messages = {};  // Object to store user-specific memories
         this.openai = new OpenAI({
             apiKey: openai_key,
         });
         this.model_name = model_name;
-        this.history_length = history_length; // For collective memory
-        this.per_user_memory = per_user_memory; // For user-specific memory (15 interactions)
+        this.history_length = history_length;  // History for collective chat
+        this.user_history_length = user_history_length;  // History for individual users
 
-        console.log("System Message (Persona) Loaded: ", file_context);  // Add this log to verify
+        console.log("System Message (Persona) Loaded: ", file_context);
     }
 
-    // Manage collective memory (for all users)
-    check_collective_memory_length() {
-        console.log(`Collective Conversations in History: ${(this.messages.length / 2)}/${this.history_length}`);
-        if (this.messages.length > (this.history_length * 2)) {
-            console.log('Collective message amount exceeded. Removing oldest user and agent messages.');
-            this.messages.splice(1, 2);  // Remove the oldest pair (user/assistant)
+    // Method to check the length of conversation history for collective memory
+    check_collective_history_length() {
+        console.log(`Collective Conversations in History: ${this.collective_messages.length - 1}/${this.history_length}`);
+        if (this.collective_messages.length > this.history_length + 1) {
+            console.log('Collective message limit exceeded. Removing oldest user and agent messages.');
+            this.collective_messages.splice(1, 2);  // Keep the system message intact
         }
     }
 
-    // Manage per-user memory
-    check_user_memory_length(user) {
-        console.log(`Conversations in History: ${((this.messages.length / 2) -1)}/${this.history_length}`);
-        if (this.perUserMemory[user] && this.perUserMemory[user].length > (this.per_user_memory * 2)) {
-            console.log(`User message amount exceeded for ${user}. Removing oldest messages.`);
-            this.perUserMemory[user].splice(1, 2);  // Remove oldest user-agent pair
+    // Method to check the length of conversation history for individual users
+    check_user_history_length(username) {
+        if (!this.user_messages[username]) {
+            this.user_messages[username] = [...this.messages];  // Initialize with the system message
+        }
+        console.log(`User (${username}) Conversations in History: ${this.user_messages[username].length - 1}/${this.user_history_length}`);
+        if (this.user_messages[username].length > this.user_history_length + 1) {
+            console.log(`User (${username}) message limit exceeded. Removing oldest user and agent messages.`);
+            this.user_messages[username].splice(1, 2);  // Keep the system message intact
         }
     }
 
+<<<<<<< HEAD
+    // Make an OpenAI call for collective memory
+    async make_openai_call_collective(text) {
+        try {
+            // Add user message to collective messages
+            this.collective_messages.push({ role: "user", content: text });
+=======
     // Add user messages to memory (handles both collective and per-user)
     add_user_message(user, text) {
         // Add to collective memory
         // this.messages.push({role: "user", content: text});
         this.check_collective_memory_length();
+>>>>>>> 84b90cd5e5a747180da57e36d2531f64c421199f
 
-        // Add to per-user memory if they are a subscriber/regular
-        if (this.is_regular(user)) {
-            if (!this.perUserMemory[user]) {
-                this.perUserMemory[user] = [{role: "system", content: `You are chatting with ${user}.`}];
-            }
-            this.perUserMemory[user].push({role: "user", content: text});
-            this.check_user_memory_length(user);
-        }
-    }
-
-    // Call OpenAI for collective or per-user interactions
-    async make_openai_call(user, text) {
-        try {
-            // Add user message to memory
-            this.add_user_message(user, text);
-
-            let chatHistory;
-            if (this.is_regular(user)) {
-                chatHistory = this.perUserMemory[user];  // Use personal memory
-            } else {
-                chatHistory = this.messages;  // Use collective memory
-            }
+            // Check if collective message history is exceeded
+            this.check_collective_history_length();
 
             // Log system message to verify it's not overwritten
-            console.log("System Message Before Sending to OpenAI:", this.messages[0]);
+            console.log("System Message for Collective Before Sending to OpenAI:", this.collective_messages[0]);
 
-            // Make OpenAI call with the appropriate history
+            // OpenAI API call
             const response = await this.openai.chat.completions.create({
                 model: this.model_name,
-                messages: chatHistory,
-                temperature: 0.8,
-                max_tokens: 512,
+                messages: this.collective_messages,
+                temperature: 1,
+                max_tokens: 512,  // Increased to 512 for more context
                 top_p: 1,
                 frequency_penalty: 0,
                 presence_penalty: 0,
             });
 
             if (response.choices) {
-                let agent_response = response.choices[0].message.content.trim();
-                console.log(`Agent Response: ${agent_response}`);
-
-                // Add assistant response to the appropriate memory
-                this.add_assistant_response(user, agent_response);
+                let agent_response = response.choices[0].message.content;
+                console.log(`Agent Response (Collective): ${agent_response}`);
+                this.collective_messages.push({ role: "assistant", content: agent_response });
                 return agent_response;
             } else {
                 throw new Error("No choices returned from OpenAI");
             }
         } catch (error) {
-            console.error(error);
-            return "Oh great, something went wrong. Try again later.";
+            console.error("OpenAI Call Error (Collective): ", error);
+            return "Sorry, something went wrong. Please try again later.";
         }
     }
+
+    // Make an OpenAI call for individual user memory
+    async make_openai_call_user(text, username) {
+        try {
+            // Add user message to their specific memory
+            if (!this.user_messages[username]) {
+                this.user_messages[username] = [...this.messages];  // Initialize with system message if not present
+            }
+            this.user_messages[username].push({ role: "user", content: text });
+
+            // Check if user-specific message history is exceeded
+            this.check_user_history_length(username);
+
+            // Log system message to verify it's not overwritten
+            console.log(`System Message for User (${username}) Before Sending to OpenAI:`, this.user_messages[username][0]);
+
+            // OpenAI API call for the user-specific memory
+            const response = await this.openai.chat.completions.create({
+                model: this.model_name,
+                messages: this.user_messages[username],
+                temperature: 1,
+                max_tokens: 512,  // Increased to 512 for more context
+                top_p: 1,
+                frequency_penalty: 0,
+                presence_penalty: 0,
+            });
+
+            if (response.choices) {
+                let agent_response = response.choices[0].message.content;
+                console.log(`Agent Response (User - ${username}): ${agent_response}`);
+                this.user_messages[username].push({ role: "assistant", content: agent_response });
+                return agent_response;
+            } else {
+                throw new Error("No choices returned from OpenAI");
+            }
+        } catch (error) {
+            console.error(`OpenAI Call Error (User - ${username}): `, error);
+            return "Sorry, something went wrong. Please try again later.";
+        }
+    }
+<<<<<<< HEAD
+=======
 
     // Add assistant responses to memory (both collective and per-user)
     add_assistant_response(user, response) {
@@ -109,4 +139,5 @@ export class OpenAIOperations {
         // This can be customized to check if a user is a subscriber/regular based on Twitch info
         return user.subscriber || user.regular;
     }
+>>>>>>> 84b90cd5e5a747180da57e36d2531f64c421199f
 }
