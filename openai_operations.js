@@ -46,7 +46,7 @@ export class OpenAIOperations {
             this.check_collective_history_length();
 
             // Log system message to verify it's not overwritten
-            console.log("System Message for Collective Before Sending to OpenAI:", this.collective_messages[0]);
+            console.log(`System Message for Collective (Sender: ${sender}) Before Sending to OpenAI:`, this.collective_messages[0]);
 
             // OpenAI API call
             const response = await this.openai.chat.completions.create({
@@ -61,7 +61,7 @@ export class OpenAIOperations {
 
             if (response.choices) {
                 let agent_response = response.choices[0].message.content;
-                console.log(`Agent Response (Collective): ${agent_response}`);
+                console.log(`Agent Response (Collective) for ${sender}: ${agent_response}`);
                 this.collective_messages.push({ role: "assistant", content: agent_response });
                 return agent_response;
             } else {
