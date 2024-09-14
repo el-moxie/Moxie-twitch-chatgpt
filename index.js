@@ -48,7 +48,7 @@ const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, EN
 
 // Setup OpenAI operations with hybrid memory (15+ interactions for regulars, 8 for collective memory)
 fileContext = fs.readFileSync('./file_context.txt', 'utf8');
-const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH, 15);  // 15 for subscribers/regulars
+const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH, 15);  // 15 for regulars (VIPs, Mods, and Subscribers)
 
 // Setup Twitch bot callbacks
 bot.onConnected((addr, port) => {
@@ -88,7 +88,7 @@ bot.onMessage(async (channel, user, message, self) => {
         }
         lastResponseTime = currentTime; // Update the last response time
 
-        // OpenAI call with collective or per-user memory (depending on if user is a subscriber/regular)
+        // OpenAI call with collective or per-user memory (depending on if user is a regular)
         const response = await openaiOps.make_openai_call(user, message);
         bot.say(channel, response);
     }
@@ -97,7 +97,7 @@ bot.onMessage(async (channel, user, message, self) => {
     if (command) {
         if (elapsedTime < COOLDOWN_DURATION) {
             const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime); // Rounds to the nearest integer
-            bot.say(channel, `Call your tits ${user.username}. Wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before pestering me again.`);
+            bot.say(channel, `Calm your tits ${user.username}. Wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before pestering me again.`);
             return;
         }
         lastResponseTime = currentTime; // Update the last response time
@@ -109,16 +109,7 @@ bot.onMessage(async (channel, user, message, self) => {
 
         // Use OpenAI to generate a response with hybrid memory (regular vs non-regular)
         const response = await openaiOps.make_openai_call(user, text);
-        if (response.length > maxLength) {
-            const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g'));
-            messages.forEach((msg, index) => {
-                setTimeout(() => {
-                    bot.say(channel, msg);
-                }, 1000 * index);
-            });
-        } else {
-            bot.say(channel, response);
-        }
+        bot.say(channel, response);
 
         if (ENABLE_TTS === 'true') {
             try {
