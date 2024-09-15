@@ -5,7 +5,7 @@ import { TwitchBot } from './twitch_bot.js';
 import { loadContext } from './file_context.js';
 import { OpenAIOperations } from './openai_operations.js';
 
-// Start keep-alive cron job (optional - disable this to debug keep-alive issues)
+// Start keep-alive cron job
 job.start();
 
 // Setup express app
@@ -35,15 +35,21 @@ const fileContext = loadContext('./file_context.txt');
 const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
 const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, 'gpt-3.5-turbo', HISTORY_LENGTH, REGULAR_HISTORY_LENGTH);
 
-// Connect bot and handle connection logs
-bot.connect().then(() => {
-    console.log('Connected to Twitch chat');
-}).catch((error) => {
-    console.error(`Failed to connect to Twitch chat: ${error.message}`);
+// Connect bot and handle connection events
+bot.client.connect();
+
+// Listen for Twitch chat connection success
+bot.client.on('connected', (addr, port) => {
+    console.log(`Connected to Twitch chat at ${addr}:${port}`);
+});
+
+// Handle connection errors
+bot.client.on('disconnected', (reason) => {
+    console.error(`Disconnected from Twitch chat: ${reason}`);
 });
 
 // Handle incoming Twitch messages and OpenAI responses
-bot.onMessage(async (channel, userstate, message, self) => {
+bot.client.on('message', async (channel, userstate, message, self) => {
     if (self) return;
 
     try {
