@@ -20,7 +20,7 @@ const CHANNELS = process.env.CHANNELS || 'YourChannel';
 const ENABLE_TTS = process.env.ENABLE_TTS || 'false';
 const HISTORY_LENGTH = 8;
 const REGULAR_HISTORY_LENGTH = 15;
-const NON_REGULAR_LIMIT = 5;
+const NON_REGULAR_LIMIT = 3;
 const COMMAND_NAME = process.env.COMMAND_NAME || '!gpt'; // Command prompt for the bot
 
 // Parse command names and channels
@@ -49,33 +49,49 @@ bot.onMessage(async (channel, userstate, message, self) => {
     let response = '';
     const username = userstate.username;
 
-    // Check if the user is a regular
+    // Debugging: Check if the bot identifies the user correctly
+    console.log(`Received message from @${username}.`);
+
+    // Check if the user is a regular (VIP, Mod, Subscriber)
     const isRegular = bot.isRegular(userstate);
     const userMessageCount = bot.getUserMessageCount(username);
 
+    // Debugging: Check the user’s message count and regular status
+    console.log(`User @${username} isRegular: ${isRegular}, Message Count: ${userMessageCount}`);
+
+    // If user is NOT a regular and has exceeded the message limit, prompt them to subscribe
     if (!isRegular && userMessageCount >= NON_REGULAR_LIMIT) {
-        response = `You've reached the message limit. Subscribe for unlimited responses!`;
+        response = `Ummm @${username}, you've reached your message limit. Subscribe for unlimited responses!`;
+
+        // Debugging: Log that the user has hit their message limit
+        console.log(`Non-regular user @${username} has hit their message limit.`);
     } else {
-        // If regular, use user-specific memory; otherwise, use collective memory
+        // If regular, or non-regular within their message limit, proceed with OpenAI response
         response = isRegular 
-            ? await openaiOps.make_openai_call_user(userMessage, username)
-            : await openaiOps.make_openai_call_collective(userMessage);
+            ? await openaiOps.make_openai_call_user(userMessage, username) // User-specific memory for regulars
+            : await openaiOps.make_openai_call_collective(userMessage); // Collective memory for non-regulars
+
+        // Debugging: Log the response
+        console.log(`Bot generated response for @${username}: ${response}`);
     }
 
-    // Handle long responses
+    // Handle long responses (max 300 characters per message, with 600 total across two messages)
     if (response.length > maxLength) {
-        // Split into two 300-character messages, max 600 characters total
         const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g')).slice(0, 2); // Max 2 parts
         messages.forEach((msg, index) => {
             setTimeout(() => {
                 bot.say(channel, msg);
+                console.log(`Bot sent message part ${index + 1} to @${username}: ${msg}`);
             }, 1000 * index);
         });
     } else {
         bot.say(channel, response);
+        console.log(`Bot sent message to @${username}: ${response}`);
     }
 
+    // Increment message count for non-regular users (so they eventually hit the limit)
     bot.incrementUserMessageCount(username);
+    console.log(`Incremented message count for @${username} to ${userMessageCount + 1}`);
 });
 
 app.listen(3000, () => {
