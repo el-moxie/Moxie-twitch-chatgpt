@@ -1,12 +1,13 @@
 import express from 'express';
 import expressWs from 'express-ws';
-import { job } from './keep_alive.js';
-import { TwitchBot } from './twitch_bot.js';
-import { loadContext } from './file_context.js';
-import { OpenAIOperations } from './openai_operations.js';
+import {job} from './keep_alive.js';
+import {TwitchBot} from './twitch_bot.js';
+import {loadContext} from './file_context.js';
+import {OpenAIOperations} from './openai_operations.js';
 
-// Start keep-alive cron job
+// Start keep alive cron job
 job.start();
+console.log(process.env);
 
 // Setup express app
 const app = express();
