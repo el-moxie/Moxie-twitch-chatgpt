@@ -1,28 +1,17 @@
 # ChatGPT Twitch Bot Documentation
 
-**Important Notice: Cyclic is no longer supported for deployment. Please use Render for deploying this bot.**
-
-Your support means the world to me! ❤️
-
-☕ [Buy me a coffee to support me](https://www.buymeacoffee.com/osetinhas) ☕
-
-Join our Discord community:
-
-[https://discord.gg/pcxybrpDx6](https://discord.gg/pcxybrpDx6)
-
----
-
 ## Overview
 
-This is a simple Node.js chatbot with ChatGPT integration, designed to work with Twitch streams. It uses the Express framework and can operate in two modes: chat mode (with context of previous messages) or prompt mode (without context of previous messages).
+This is a Node.js chatbot with ChatGPT integration, designed for Twitch streams. It uses the Express framework and features customizable interactions with Twitch chat users. You can configure it to manage chat interactions with a personalized personality that adapts to regular users like subscribers, VIPs, and Mods.
 
 ## Features
 
 - Responds to Twitch chat commands with ChatGPT-generated responses.
-- Can operate in chat mode with context or prompt mode without context.
-- Supports Text-to-Speech (TTS) for responses.
-- Customizable via environment variables.
+- Customizable bot persona via a context file (`file_context.txt`).
+- Implements cooldowns for commands to prevent spam, with customizable cooldown durations.
+- Provides enhanced interactions and deeper memory for regular users (subscribers, VIPs, Mods).
 - Deployed on Render for 24/7 availability.
+- Can be triggered using customizable Twitch chat commands.
 
 ---
 
@@ -30,11 +19,11 @@ This is a simple Node.js chatbot with ChatGPT integration, designed to work with
 
 ### 1. Fork the Repository
 
-Login to GitHub and fork this repository to get your own copy.
+Log in to GitHub and fork this repository to get your own copy.
 
 ### 2. Fill Out Your Context File
 
-Open `file_context.txt` and write down all your background information for GPT. This content will be included in every request.
+Open `file_context.txt` and personalize the bot by writing down background information. This content will be included in every ChatGPT request, allowing the bot to reflect the personality and tone you want for your stream.
 
 ### 3. Create an OpenAI Account
 
@@ -68,18 +57,13 @@ Go to the variables/environment tab in your Render deployment and set the follow
 
 #### 6.2. Optional Variables
 
-##### 6.2.1. Nightbot/Streamelements Integration Variable
-- `GPT_MODE`: (default: `CHAT`) Mode of operation, can be `CHAT` or `PROMPT`.
-
-##### 6.2.2. All Modes Variables
-- `HISTORY_LENGTH`: (default: `5`) Number of previous messages to include in context.
-- `MODEL_NAME`: (default: `gpt-3.5-turbo`) The OpenAI model to use. You can check the available models [here](https://platform.openai.com/docs/models/). 
+##### 6.2.1. All Modes Variables
+- `HISTORY_LENGTH`: (default: `8`) Number of previous messages to include in context.
+- `MODEL_NAME`: (default: `gpt-3.5-turbo`) The OpenAI model to use. You can check the available models [here](https://platform.openai.com/docs/models/).
 - `COMMAND_NAME`: (default: `!gpt`) The command that triggers the bot. You can set more than one command by separating them with a comma (e.g. `!gpt,!chatbot`).
 - `CHANNELS`: List of Twitch channels the bot will join (comma-separated). (e.g. `channel1,channel2`; do not include www.twitch.tv)
 - `SEND_USERNAME`: (default: `true`) Whether to include the username in the message sent to OpenAI.
-- `ENABLE_TTS`: (default: `false`) Whether to enable Text-to-Speech.
-- `ENABLE_CHANNEL_POINTS`: (default: `false`) Whether to enable channel points integration.
-- `COOLDOWN_DURATION`: (default: `10`) Cooldown duration in seconds between responses.
+- `COOLDOWN_DURATION`: (default: `30`) Cooldown duration in seconds between responses.
 
 #### 6.3. Twitch Integration Variables
 
@@ -87,10 +71,6 @@ Go to the variables/environment tab in your Render deployment and set the follow
   - Go to https://twitchapps.com/tmi/ and click on Connect with Twitch
   - Copy the token from the page and paste it in the TWITCH_AUTH variable  
   - ⚠️ THIS TOKEN MIGHT EXPIRE AFTER A FEW DAYS, SO YOU MIGHT HAVE TO REPEAT THIS STEP EVERY FEW DAYS ⚠️
-
-### 7. Text-To-Speech (TTS) Setup
-
-Your Render URL (e.g., `https://your-twitch-bot.onrender.com/`) can be added as a widget to your stream for TTS integration.
 
 ---
 
@@ -110,39 +90,17 @@ To use the `!gpt` command:
 
 The bot will respond with an OpenAI-generated message.
 
-### Streamelements and Nightbot Integration
-
-#### Streamelements
-
-Create a custom command with the response:
-
-```twitch
-$(urlfetch https://your-render-url.onrender.com/gpt/"${user}:${queryescape ${1:}}")
-```
-
-#### Nightbot
-
-Create a custom command with the response:
-
-```twitch
-!addcom !gptcmd $(urlfetch https://twitch-chatgpt-bot.onrender.com/gpt/$(user):$(querystring))
-```
-
-Replace `your-render-url.onrender.com` with your actual Render URL.
-Replace `gptcmd` with your desired command name.
-Remove `$(user):` if you don't want to include the username in the message sent to OpenAI.
 ---
 
-## Support
+## Cooldown and Custom Interactions
 
-For any issues or questions, please join our [Discord community](https://discord.gg/pcxybrpDx6).
+The bot enforces a **cooldown** between messages to avoid spam. The **`COOLDOWN_DURATION`** environment variable controls how long users need to wait before issuing another command.
 
-Thank you for using the ChatGPT Twitch Bot! Your support is greatly appreciated. ☕ [Buy me a coffee](https://www.buymeacoffee.com/osetinhas) ☕
+The bot interacts differently with regulars (subscribers, VIPs, and mods), giving them more personalized and sarcastic responses. Regulars can also bypass message limits, while non-regulars have message limits per session.
 
 ---
 
 ### Important Notice
 
-**Cyclic is no longer supported for deployment. Please use Render for deploying this bot.**
+Render is the recommended platform for deploying and hosting this bot for continuous uptime.
 
----
