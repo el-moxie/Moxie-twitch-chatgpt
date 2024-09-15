@@ -6,7 +6,7 @@ import { loadContext } from './file_context.js';
 import { OpenAIOperations } from './openai_operations.js';
 
 // Start keep-alive cron job (optional - disable this to debug keep-alive issues)
-// job.start();
+job.start();
 
 // Setup express app
 const app = express();
