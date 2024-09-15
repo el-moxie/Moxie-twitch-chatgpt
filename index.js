@@ -1,11 +1,11 @@
 import express from 'express';
 import expressWs from 'express-ws';
-import {job} from './keep_alive.js';
-import {TwitchBot} from './twitch_bot.js';
-import {loadContext} from './file_context.js';
-import {OpenAIOperations} from './openai_operations.js';
+import { job } from './keep_alive.js';
+import { TwitchBot } from './twitch_bot.js';
+import { loadContext } from './file_context.js';
+import { OpenAIOperations } from './openai_operations.js';
 
-// Start keep alive cron job
+// Start keep-alive cron job
 job.start();
 console.log(process.env);
 
@@ -23,6 +23,7 @@ const HISTORY_LENGTH = 8;
 const REGULAR_HISTORY_LENGTH = 15;
 const NON_REGULAR_LIMIT = 5;
 const COMMAND_NAME = process.env.COMMAND_NAME || '!gpt'; // Command prompt for the bot
+const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION) || 30; // Use existing cooldown duration
 
 // Parse command names and channels
 const commandNames = COMMAND_NAME.split(',').map(cmd => cmd.trim().toLowerCase());
@@ -31,6 +32,9 @@ const maxLength = 300; // Set max length to 300 characters
 
 // Load bot persona (file_context.txt)
 const fileContext = loadContext('./file_context.txt');
+
+// Track user cooldowns
+const userCooldowns = {};
 
 // Setup Twitch bot and OpenAI operations
 const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
@@ -44,14 +48,20 @@ bot.client.on('connected', (addr, port) => {
     console.log(`Connected to Twitch chat at ${addr}:${port}`);
 });
 
-// Handle connection errors
-bot.client.on('disconnected', (reason) => {
-    console.error(`Disconnected from Twitch chat: ${reason}`);
-});
-
-// Handle incoming Twitch messages and OpenAI responses
+// Handle incoming Twitch messages and OpenAI responses with cooldown
 bot.client.on('message', async (channel, userstate, message, self) => {
     if (self) return;
+
+    const username = userstate.username;
+    const now = Date.now();
+
+    // Check if user is within the cooldown period
+    if (userCooldowns[username] && now - userCooldowns[username] < COOLDOWN_DURATION * 1000) {
+        const remainingCooldown = Math.ceil((COOLDOWN_DURATION * 1000 - (now - userCooldowns[username])) / 1000);
+        // Send the cooldown message using /me to make it look like an action
+        bot.say(channel, `/me Slow down @${username}, you need to chill ${remainingCooldown} more seconds before pestering me again.`);
+        return;
+    }
 
     try {
         console.log(`Received message from @${userstate.username}: ${message}`);
@@ -65,7 +75,6 @@ bot.client.on('message', async (channel, userstate, message, self) => {
         console.log(`Message from @${userstate.username} starts with the correct command.`);
         
         let response = '';
-        const username = userstate.username;
 
         // Check if the user is a regular (VIP, Mod, Subscriber)
         const isRegular = bot.isRegular(userstate);
@@ -100,6 +109,9 @@ bot.client.on('message', async (channel, userstate, message, self) => {
         // Increment message count for non-regular users
         bot.incrementUserMessageCount(username);
         console.log(`Incremented message count for @${username} to ${userMessageCount + 1}`);
+
+        // Set the last interaction time for the user (to enforce cooldown)
+        userCooldowns[username] = now;
     } catch (error) {
         console.error(`Error processing message from @${userstate.username}:`, error);
     }
