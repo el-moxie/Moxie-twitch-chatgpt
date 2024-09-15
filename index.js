@@ -36,22 +36,11 @@ const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, EN
 const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, 'gpt-3.5-turbo', HISTORY_LENGTH, REGULAR_HISTORY_LENGTH);
 
 // Connect bot and handle connection logs
-try {
-    bot.connect();
-    bot.onConnected((addr, port) => {
-        console.log(`Connected to Twitch chat at ${addr}:${port}`);
-    });
-
-    bot.onDisconnected((reason) => {
-        console.log(`Disconnected from Twitch chat. Reason: ${reason}`);
-    });
-
-    channels.forEach(channel => {
-        console.log(`Joining channel: ${channel}`);
-    });
-} catch (error) {
+bot.connect().then(() => {
+    console.log('Connected to Twitch chat');
+}).catch((error) => {
     console.error(`Failed to connect to Twitch chat: ${error.message}`);
-}
+});
 
 // Handle incoming Twitch messages and OpenAI responses
 bot.onMessage(async (channel, userstate, message, self) => {
