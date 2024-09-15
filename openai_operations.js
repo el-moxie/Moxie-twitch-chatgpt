@@ -5,9 +5,7 @@ export class OpenAIOperations {
         this.messages = [{ role: "system", content: file_context }];
         this.collective_messages = [...this.messages];  // Initialize collective chat memory
         this.user_messages = {};  // Object to store user-specific memories
-        this.openai = new OpenAI({
-            apiKey: openai_key,
-        });
+        this.openai = new OpenAI({ apiKey: openai_key });
         this.model_name = model_name;
         this.history_length = history_length;  // History for collective chat
         this.user_history_length = user_history_length;  // History for individual users
@@ -45,15 +43,12 @@ export class OpenAIOperations {
             // Check if collective message history is exceeded
             this.check_collective_history_length();
 
-            // Log the full collective message history
-            console.log(`Full Collective Message History (Sender: ${sender}):`, JSON.stringify(this.collective_messages, null, 2));
-
             // OpenAI API call
             const response = await this.openai.chat.completions.create({
                 model: this.model_name,
                 messages: this.collective_messages,
                 temperature: 0.8,
-                max_tokens: 512,  // Increased to 512 for more context
+                max_tokens: 512,
                 top_p: 1,
                 frequency_penalty: 0,
                 presence_penalty: 0,
@@ -61,7 +56,7 @@ export class OpenAIOperations {
 
             if (response.choices) {
                 let agent_response = response.choices[0].message.content;
-                console.log(`Agent Response (Collective) for ${sender}: ${agent_response}`);
+                console.log(`Agent Response (Collective): ${agent_response}`);
                 this.collective_messages.push({ role: "assistant", content: agent_response });
                 return agent_response;
             } else {
@@ -76,24 +71,23 @@ export class OpenAIOperations {
     // Make an OpenAI call for individual user memory
     async make_openai_call_user(text, username) {
         try {
-            // Add user message to their specific memory
+            // Initialize user-specific memory if not present
             if (!this.user_messages[username]) {
-                this.user_messages[username] = [...this.messages];  // Initialize with system message if not present
+                this.user_messages[username] = [...this.messages];
             }
+
+            // Add user message to their specific memory
             this.user_messages[username].push({ role: "user", content: text });
 
             // Check if user-specific message history is exceeded
             this.check_user_history_length(username);
-
-            // Log the full user-specific message history
-            console.log(`Full User-Specific Message History (${username}):`, JSON.stringify(this.user_messages[username], null, 2));
 
             // OpenAI API call for the user-specific memory
             const response = await this.openai.chat.completions.create({
                 model: this.model_name,
                 messages: this.user_messages[username],
                 temperature: 0.8,
-                max_tokens: 512,  // Increased to 512 for more context
+                max_tokens: 512,
                 top_p: 1,
                 frequency_penalty: 0,
                 presence_penalty: 0,

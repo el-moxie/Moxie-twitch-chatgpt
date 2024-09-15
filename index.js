@@ -1,110 +1,71 @@
 import express from 'express';
-import fs from 'fs';
-import ws from 'ws';
 import expressWs from 'express-ws';
 import { job } from './keep_alive.js';
-import { OpenAIOperations } from './openai_operations.js';
 import { TwitchBot } from './twitch_bot.js';
+import { loadContext } from './file_context.js';
+import { OpenAIOperations } from './openai_operations.js';
 
 // Start keep-alive cron job
 job.start();
-console.log(process.env);
 
 // Setup express app
 const app = express();
 const expressWsInstance = expressWs(app);
 
-// Set the view engine to ejs
-app.set('view engine', 'ejs');
-
 // Load environment variables
-const GPT_MODE = process.env.GPT_MODE || 'CHAT';
-const HISTORY_LENGTH = process.env.HISTORY_LENGTH || 5;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
-const MODEL_NAME = process.env.MODEL_NAME || 'gpt-3.5-turbo';
-const TWITCH_USER = process.env.TWITCH_USER || 'oSetinhasBot';
-const TWITCH_AUTH = process.env.TWITCH_AUTH || 'oauth:vgvx55j6qzz1lkt3cwggxki1lv53c2';
-const COMMAND_NAME = process.env.COMMAND_NAME || '!gpt';
-const CHANNELS = process.env.CHANNELS || 'oSetinhas,jones88';
-const SEND_USERNAME = process.env.SEND_USERNAME || 'true';
+const TWITCH_USER = process.env.TWITCH_USER || 'TwitchBotUser';
+const TWITCH_AUTH = process.env.TWITCH_AUTH || 'oauth:your_oauth_token';
+const CHANNELS = process.env.CHANNELS || 'YourChannel';
 const ENABLE_TTS = process.env.ENABLE_TTS || 'false';
-const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS || 'false';
-const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 10; // Cooldown duration in seconds
+const HISTORY_LENGTH = 8;
+const REGULAR_HISTORY_LENGTH = 15;
+const NON_REGULAR_LIMIT = 5;
+const COMMAND_NAME = process.env.COMMAND_NAME || '!gpt'; // Command prompt for the bot
 
-if (!OPENAI_API_KEY) {
-    console.error('No OPENAI_API_KEY found. Please set it as an environment variable.');
-}
-
+// Parse command names and channels
 const commandNames = COMMAND_NAME.split(',').map(cmd => cmd.trim().toLowerCase());
 const channels = CHANNELS.split(',').map(channel => channel.trim());
-const maxLength = 399;
-let fileContext = 'You are a helpful Twitch Chatbot.';
-let lastUserMessage = '';
-let lastResponseTime = 0; // Track the last response time
+const maxLength = 300; // Set max length to 300 characters
 
-// Setup Twitch bot
-console.log('Channels: ', channels);
+// Load bot persona (file_context.txt)
+const fileContext = loadContext('./file_context.txt');
+
+// Setup Twitch bot and OpenAI operations
 const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
-
-// Setup OpenAI operations with hybrid memory (15+ interactions for regulars, 8 for collective memory)
-fileContext = fs.readFileSync('./file_context.txt', 'utf8');
-// console.log("File Context Loaded: ", fileContext);  // Add this line for verification
-const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH, 15);  // 15 for regulars (VIPs, Mods, and Subscribers)
-
-// Setup Twitch bot callbacks
-bot.onConnected((addr, port) => {
-    console.log(`* Connected to ${addr}:${port}`);
-    channels.forEach(channel => {
-        console.log(`* Joining ${channel}`);
-        console.log(`* Saying hello in ${channel}`);
-    });
-});
-
-bot.onDisconnected(reason => {
-    console.log(`Disconnected: ${reason}`);
-});
-
-// Connect bot
-bot.connect(
-    () => {
-        console.log('Bot connected!');
-    },
-    error => {
-        console.error('Bot couldn\'t connect!', error);
-    }
-);
+const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, 'gpt-3.5-turbo', HISTORY_LENGTH, REGULAR_HISTORY_LENGTH);
 
 // Handle incoming Twitch messages and OpenAI responses
 bot.onMessage(async (channel, userstate, message, self) => {
     if (self) return;
 
-    const currentTime = Date.now();
-    const elapsedTime = (currentTime - lastResponseTime) / 1000;  // Time in seconds
+    // Check if message starts with any of the command names
+    if (!commandNames.some(cmd => message.toLowerCase().startsWith(cmd))) return;
 
-    if (elapsedTime < COOLDOWN_DURATION) {
-        const remainingTime = Math.round(COOLDOWN_DURATION - elapsedTime);
-        bot.say(channel, `Cooldown active. Please wait ${remainingTime} second${remainingTime !== 1 ? 's' : ''} before sending another message.`);
-        return;
-    }
-    lastResponseTime = currentTime;  // Update the last response time
+    // Strip the command from the message
+    const userMessage = message.slice(COMMAND_NAME.length).trim();
+    if (!userMessage) return;
 
     let response = '';
     const username = userstate.username;
 
-    // Check if the user is a regular (VIP, Mod, or Subscriber)
-    const isRegular = userstate.mod || userstate.subscriber || (userstate.badges && userstate.badges.vip);
+    // Check if the user is a regular
+    const isRegular = bot.isRegular(userstate);
+    const userMessageCount = bot.getUserMessageCount(username);
 
-    // If the user is a regular, use user-specific memory; otherwise, use collective memory
-    if (isRegular) {
-        console.log(`${username} is a regular.`);
-        response = await openaiOps.make_openai_call_user(message, username);  // Use user-specific memory
+    if (!isRegular && userMessageCount >= NON_REGULAR_LIMIT) {
+        response = `You've reached the message limit. Subscribe for unlimited responses!`;
     } else {
-        console.log(`${username} is NOT a regular.`);
-        response = await openaiOps.make_openai_call_collective(message);  // Use collective memory
+        // If regular, use user-specific memory; otherwise, use collective memory
+        response = isRegular 
+            ? await openaiOps.make_openai_call_user(userMessage, username)
+            : await openaiOps.make_openai_call_collective(userMessage);
     }
 
+    // Handle long responses
     if (response.length > maxLength) {
-        const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g'));
+        // Split into two 300-character messages, max 600 characters total
+        const messages = response.match(new RegExp(`.{1,${maxLength}}`, 'g')).slice(0, 2); // Max 2 parts
         messages.forEach((msg, index) => {
             setTimeout(() => {
                 bot.say(channel, msg);
@@ -113,78 +74,10 @@ bot.onMessage(async (channel, userstate, message, self) => {
     } else {
         bot.say(channel, response);
     }
+
+    bot.incrementUserMessageCount(username);
 });
 
-app.ws('/check-for-updates', (ws, req) => {
-    ws.on('message', message => {
-        // Handle WebSocket messages (if needed)
-    });
-});
-
-const messages = [{role: 'system', content: 'You are a helpful Twitch Chatbot.'}];
-console.log('GPT_MODE:', GPT_MODE);
-console.log('History length:', HISTORY_LENGTH);
-console.log('OpenAI API Key:', OPENAI_API_KEY);
-console.log('Model Name:', MODEL_NAME);
-
-app.use(express.json({extended: true, limit: '1mb'}));
-app.use('/public', express.static('public'));
-
-app.all('/', (req, res) => {
-    console.log('Received a request!');
-    res.render('pages/index');
-});
-
-if (GPT_MODE === 'CHAT') {
-    fs.readFile('./file_context.txt', 'utf8', (err, data) => {
-        if (err) throw err;
-        console.log('Reading context file and adding it as system-level message for the agent.');
-        messages[0].content = data;
-    });
-} else {
-    fs.readFile('./file_context.txt', 'utf8', (err, data) => {
-        if (err) throw err;
-        console.log('Reading context file and adding it in front of user prompts:');
-        fileContext = data;
-    });
-}
-
-app.get('/gpt/:text', async (req, res) => {
-    const text = req.params.text;
-
-    let answer = '';
-    try {
-        if (GPT_MODE === 'CHAT') {
-            answer = await openaiOps.make_openai_call(null, text);  // null for general queries
-        } else if (GPT_MODE === 'PROMPT') {
-            const prompt = `${fileContext}\n\nUser: ${text}\nAgent:`;
-            answer = await openaiOps.make_openai_call_completion(prompt);
-        } else {
-            throw new Error('GPT_MODE is not set to CHAT or PROMPT. Please set it as an environment variable.');
-        }
-
-        res.send(answer);
-    } catch (error) {
-        console.error('Error generating response:', error);
-        res.status(500).send('An error occurred while generating the response.');
-    }
-});
-
-const server = app.listen(3000, () => {
+app.listen(3000, () => {
     console.log('Server running on port 3000');
 });
-
-const wss = expressWsInstance.getWss();
-wss.on('connection', ws => {
-    ws.on('message', message => {
-        // Handle client messages (if needed)
-    });
-});
-
-function notifyFileChange() {
-    wss.clients.forEach(client => {
-        if (client.readyState === ws.OPEN) {
-            client.send(JSON.stringify({updated: true}));
-        }
-    });
-}
